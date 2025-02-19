@@ -1,0 +1,119 @@
+class Client:
+    def __init__(self, client_code, full_name, open_date, deposit_amount, interest_rate):
+        self.client_code = client_code
+        self.full_name = full_name
+        self.open_date = open_date
+        self.deposit_amount = deposit_amount
+        self.interest_rate = interest_rate
+
+    def __str__(self):
+        return (f"Код: {self.client_code}, ФИО: {self.full_name}, Дата открытия: {self.open_date}, "
+                f"Вклад: {self.deposit_amount}, Процент: {self.interest_rate}")
+
+
+class Bank:
+    def __init__(self):
+        self.clientBase = []
+
+    def addClient(self, client):
+        self.clientBase.append(client)
+
+    def showByMoney(self, money):
+        print(f"Клиенты с вкладом больше {money}:")
+        for client in self.clientBase:
+            if client.deposit_amount > money:
+                print(client)
+
+    def showByCode(self, cod):
+        for client in self.clientBase:
+            if client.client_code == cod:
+                print(client)
+                return  # Выходим, если нашли клиента
+        print(f"Клиент с кодом {cod} не найден.")
+
+    def showByProc(self, proc):
+        print(f"Клиенты с процентом больше {proc}:")
+        for client in self.clientBase:
+            if client.interest_rate > proc:
+                print(client)
+
+
+class Employee:
+    def __init__(self, employee_code, full_name, age, salary, department):
+        self.employee_code = employee_code
+        self.full_name = full_name
+        self.age = age
+        self.salary = salary
+        self.department = department
+
+    def __str__(self):
+        return (f"Код: {self.employee_code}, ФИО: {self.full_name}, Возраст: {self.age}, "
+                f"Зарплата: {self.salary}, Отдел: {self.department}")
+
+
+class Firm:
+    def __init__(self):
+        self.base = []
+
+    def addEmpl(self, empl):
+        self.base.append(empl)
+
+    def showBySal(self, money):
+        print(f"Сотрудники с зарплатой меньше {money}:")
+        for empl in self.base:
+            if empl.salary < money:
+                print(empl)
+
+    def showByAge(self, age):
+        print(f"Сотрудники старше {age} лет:")
+        for empl in self.base:
+            if empl.age > age:
+                print(empl)
+
+    def showByCode(self, code):
+        for empl in self.base:
+            if empl.employee_code == code:
+                print(empl)
+                return
+        print(f"Сотрудник с кодом {code} не найден.")
+
+    def showByDepart(self, dep):
+        print(f"Сотрудники отдела '{dep}':")
+        for empl in self.base:
+            if empl.department == dep:
+                print(empl)
+
+
+# Пример использования
+if __name__ == "__main__":
+    # Bank example
+    bank = Bank()
+    client1 = Client(1, "Иванов Иван Иванович", "01.01.2023", 100000, 5.5)
+    client2 = Client(2, "Петров Петр Петрович", "15.03.2023", 50000, 6.0)
+    client3 = Client(3, "Сидоров Сидор Сидорович", "10.05.2023", 200000, 5.0)
+
+    bank.addClient(client1)
+    bank.addClient(client2)
+    bank.addClient(client3)
+
+    bank.showByMoney(75000)
+    bank.showByCode(2)
+    bank.showByProc(5.2)
+
+    print("\n--- Firm example ---")
+    # Firm example
+    firm = Firm()
+    empl1 = Employee(101, "Алексеев Алексей Алексеевич", 35, 60000, "Бухгалтерия")
+    empl2 = Employee(102, "Борисов Борис Борисович", 42, 80000, "Производство")
+    empl3 = Employee(103, "Викторов Виктор Викторович", 28, 50000, "Отдел кадров")
+    empl4 = Employee(104, "Григорьев Григорий Григорьевич", 50, 70000, "Бухгалтерия")
+
+    firm.addEmpl(empl1)
+    firm.addEmpl(empl2)
+    firm.addEmpl(empl3)
+    firm.addEmpl(empl4)
+
+    firm.showBySal(75000)
+    firm.showByAge(40)
+    firm.showByCode(103)
+    firm.showByDepart("Бухгалтерия")

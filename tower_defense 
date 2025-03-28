@@ -1,0 +1,207 @@
+import pygame
+import random
+import math
+
+# Инициализация Pygame
+pygame.init()
+
+# Размеры экрана
+screen_width = 800
+screen_height = 600
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("Simple Tower Defense")
+
+# Цвета
+black = (0, 0, 0)
+white = (255, 255, 255)
+red = (255, 0, 0)
+green = (0, 255, 0)
+blue = (0, 0, 255)
+grey = (200, 200, 200)
+
+# Основные параметры
+grid_size = 50
+path = [(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2),
+        (9, 2), (10, 2), (11, 2), (12, 2), (13, 2), (14, 2), (15, 2)]  # Пример пути (координаты сетки)
+path_coords = [(x * grid_size + grid_size // 2, y * grid_size + grid_size // 2) for x, y in path]
+
+# Класс врага
+class Enemy:
+    def __init__(self, path):
+        self.x = path[0][0] * grid_size + grid_size // 2  # Центр первой клетки пути
+        self.y = path[0][1] * grid_size + grid_size // 2
+        self.speed = 1
+        self.health = 100
+        self.path = path
+        self.path_index = 0
+        self.size = 20
+
+    def move(self):
+        if self.path_index < len(self.path):
+            target_x = self.path[self.path_index][0] * grid_size + grid_size // 2
+            target_y = self.path[self.path_index][1] * grid_size + grid_size // 2
+            dx = target_x - self.x
+            dy = target_y - self.y
+            distance = math.sqrt(dx**2 + dy**2)
+
+            if distance > 0:
+                dx = dx / distance
+                dy = dy / distance
+                self.x += dx * self.speed
+                self.y += dy * self.speed
+
+            if distance < self.speed:
+                self.path_index += 1
+
+    def draw(self, screen):
+        pygame.draw.circle(screen, red, (int(self.x), int(self.y)), self.size)
+
+    def is_alive(self):
+        return self.health > 0
+
+    def is_finished(self):
+        return self.path_index >= len(self.path)
+
+# Класс башни
+class Tower:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.range = 150
+        self.damage = 20
+        self.attack_speed = 1 # атак в секунду
+        self.last_attack_time = 0  # Время последней атаки
+        self.size = 30
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, blue, (self.x - self.size // 2, self.y - self.size // 2, self.size, self.size))
+        # Отображение радиуса (опционально)
+        #pygame.draw.circle(screen, blue, (self.x, self.y), self.range, 1)
+
+
+    def attack(self, enemies):
+        now = pygame.time.get_ticks() / 1000  # Текущее время в секундах
+        if now - self.last_attack_time >= (1 / self.attack_speed):
+            # Поиск ближайшего врага в радиусе
+            closest_enemy = None
+            closest_distance = self.range
+
+            for enemy in enemies:
+                distance = math.sqrt((self.x - enemy.x)**2 + (self.y - enemy.y)**2)
+                if distance <= self.range and distance < closest_distance:
+                    closest_enemy = enemy
+                    closest_distance = distance
+
+            if closest_enemy:
+                closest_enemy.health -= self.damage
+                self.last_attack_time = now
+                return True  # Успешная атака
+        return False # Атака не произведена
+
+# Функция отрисовки сетки (для наглядности)
+def draw_grid(screen):
+    for x in range(0, screen_width, grid_size):
+        for y in range(0, screen_height, grid_size):
+            pygame.draw.line(screen, grey, (x, 0), (x, screen_height), 1)
+            pygame.draw.line(screen, grey, (0, y), (screen_width, y), 1)
+
+# Функция отрисовки пути
+def draw_path(screen, path_coords):
+    if len(path_coords) > 1:
+        pygame.draw.lines(screen, green, False, path_coords, 5)
+
+
+# Основной игровой цикл
+def game_loop():
+    enemies = []
+    towers = []
+    wave_number = 0
+    wave_start_time = 0
+    wave_cooldown = 5 # Время между волнами в секундах
+    money = 100 # Стартовый капитал
+    tower_cost = 50
+
+    running = True
+    clock = pygame.time.Clock()
+
+    # Функция для отображения текста
+    def draw_text(text, x, y, color):
+      font = pygame.font.Font(None, 30)
+      text_surface = font.render(text, True, color)
+      screen.blit(text_surface, (x, y))
+
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = event.pos
+                grid_x = x // grid_size
+                grid_y = y // grid_size
+
+                #Проверка что башня ставится на свободное место (не на путь)
+                if (grid_x,grid_y) not in path:
+                    # Попытка поставить башню
+                    tower_x = grid_x * grid_size + grid_size // 2
+                    tower_y = grid_y * grid_size + grid_size // 2
+                    if money >= tower_cost:
+                         towers.append(Tower(tower_x, tower_y))
+                         money -= tower_cost
+
+
+        # Волна врагов
+        now = pygame.time.get_ticks() / 1000
+        if now - wave_start_time >= wave_cooldown or wave_start_time == 0:
+            wave_number += 1
+            num_enemies = wave_number * 5  # Увеличиваем количество врагов с каждой волной
+            for _ in range(num_enemies):
+                enemies.append(Enemy(path))  # Создаем врагов
+            wave_start_time = now
+
+
+        # Движение и логика врагов
+        for enemy in enemies:
+            if enemy.is_alive():
+                enemy.move()
+
+        # Логика башен (атака)
+        for tower in towers:
+            tower.attack(enemies)
+
+        # Удаление мертвых и финишировавших врагов
+        enemies_alive = []
+        for enemy in enemies:
+            if enemy.is_alive() and not enemy.is_finished():
+                enemies_alive.append(enemy)
+
+        # Если враг добрался до конца, уменьшаем количество денег
+        for enemy in enemies:
+            if enemy.is_finished():
+                money -= 10
+
+        enemies = enemies_alive
+
+
+        # Отрисовка
+        screen.fill(black)
+        draw_grid(screen)  # Рисуем сетку
+        draw_path(screen, path_coords) # Рисуем путь
+        for enemy in enemies:
+            enemy.draw(screen)
+        for tower in towers:
+            tower.draw(screen)
+
+        # Отображение информации
+        draw_text(f"Wave: {wave_number}", 10, 10, white)
+        draw_text(f"Money: {money}", 10, 40, white)
+
+
+        pygame.display.flip()
+        clock.tick(60) # FPS
+
+    pygame.quit()
+
+
+# Запуск игры
+game_loop()

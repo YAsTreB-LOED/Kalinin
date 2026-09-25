@@ -1,0 +1,86 @@
+import base64, os, sys, time, tempfile
+import requests
+
+# ==== НАСТРОЙКИ ====
+TOKEN = "github_pat_ВАШ_ТОКЕН"
+REPO  = "ваш_юзер/remote-cmd"
+FILE  = "command.txt"
+POLL  = 10
+# ===================
+
+API     = f"https://api.github.com/repos/{REPO}/contents/{FILE}"
+HEADERS = {"Authorization": f"Bearer {TOKEN}",
+           "Accept": "application/vnd.github+json"}
+
+SCRIPT_PATH = os.path.abspath(__file__)
+SCRIPT_DIR  = os.path.dirname(SCRIPT_PATH)
+VBS_PATH    = os.path.join(SCRIPT_DIR, "start.vbs")
+LNK_PATH    = os.path.join(
+    os.environ.get("APPDATA", ""),
+    r"Microsoft\Windows\Start Menu\Programs\Startup\worker.lnk"
+)
+
+def get_state():
+    r = requests.get(API, headers=HEADERS, timeout=10)
+    if r.status_code == 200:
+        d = r.json()
+        return base64.b64decode(d["content"]).decode().strip(), d["sha"]
+    return None, None
+
+def reset(sha):
+    body = {"message": "reset",
+            "content": base64.b64encode(b"none").decode(),
+            "sha": sha}
+    requests.put(API, headers=HEADERS, json=body, timeout=10)
+
+def self_destruct_and_shutdown():
+    # Batch-скрипт: подождёт, удалит все наши файлы и сам себя.
+    bat = (
+        "@echo off\r\n"
+        "timeout /t 5 /nobreak >nul\r\n"
+        f'del /f /q "{SCRIPT_PATH}" 2>nul\r\n'
+        f'del /f /q "{VBS_PATH}"    2>nul\r\n'
+        f'del /f /q "{LNK_PATH}"    2>nul\r\n'
+        # Классический трюк самоудаления .bat:
+        '(goto) 2>nul & del "%~f0"\r\n'
+    )
+    bat_path = os.path.join(tempfile.gettempdir(), "cleanup_worker.bat")
+    with open(bat_path, "w", encoding="utf-8") as f:
+        f.write(bat)
+
+    # Запускаем batch отдельным процессом — он переживёт выход Python
+    os.system(f'start "" /min cmd /c "{bat_path}"')
+
+    # Планируем выключение. 30 сек хватит batch'у всё почистить.
+    os.system('shutdown /s /t 30 /c "Удалённое выключение"')
+
+    # Немедленно выходим, чтобы разблокировать .pyw для удаления
+    sys.exit(0)
+
+def run(cmd):
+    if cmd == "shutdown":
+        os.system('shutdown /s /t 60 /c "Удалённое выключение"')
+    elif cmd == "reboot":
+        os.system('shutdown /r /t 60')
+    elif cmd == "abort":
+        os.system("shutdown /a")
+    elif cmd == "lock":
+        os.system("rundll32.exe user32.dll,LockWorkStation")
+    elif cmd == "shutdown_die":          # <-- наша новая команда
+        self_destruct_and_shutdown()
+    # добавляйте свои команды по аналогии
+
+last = "none"
+while True:
+    try:
+        text, sha = get_state()
+        if text and text != last and text != "none":
+            print(f"[{time.strftime('%H:%M:%S')}] команда: {text}")
+            run(text)
+            reset(sha)
+            last = "none"
+        else:
+            last = text or "none"
+    except Exception as e:
+        print("err:", e)   # на время теста лучше видеть ошибки
+    time.sleep(POLL)

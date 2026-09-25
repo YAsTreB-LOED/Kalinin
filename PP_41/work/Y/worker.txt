@@ -1,0 +1,58 @@
+import base64, os, time
+import requests
+
+# ==== НАСТРОЙКИ ====
+TOKEN = "github_pat_ВАШ_ТОКЕН"
+REPO  = "ваш_юзер/remote-cmd"
+FILE  = "command.txt"
+POLL  = 10  # секунд между проверками
+# ===================
+
+API     = f"https://api.github.com/repos/{REPO}/contents/{FILE}"
+HEADERS = {"Authorization": f"Bearer {TOKEN}",
+           "Accept": "application/vnd.github+json"}
+
+def get_state():
+    """Возвращает (текст, sha) или (None, None)."""
+    r = requests.get(API, headers=HEADERS, timeout=10)
+    if r.status_code == 200:
+        data = r.json()
+        text = base64.b64decode(data["content"]).decode().strip()
+        return text, data["sha"]
+    return None, None
+
+def reset(sha):
+    """Сбрасывает файл в 'none' после выполнения."""
+    body = {
+        "message": "reset",
+        "content": base64.b64encode(b"none").decode(),
+        "sha": sha,
+    }
+    requests.put(API, headers=HEADERS, json=body, timeout=10)
+
+def run(cmd):
+    if cmd == "shutdown":
+        os.system('shutdown /s /t 60 /c "Удалённое выключение"')
+    elif cmd == "reboot":
+        os.system('shutdown /r /t 60 /c "Удалённая перезагрузка"')
+    elif cmd == "abort":
+        os.system("shutdown /a")
+    elif cmd == "lock":
+        os.system("rundll32.exe user32.dll,LockWorkStation")
+    # сюда можно дописать любые другие команды
+
+last = "none"
+while True:
+    try:
+        text, sha = get_state()
+        if text and text != last and text != "none":
+            print(f"[{time.strftime('%H:%M:%S')}] команда: {text}")
+            run(text)
+            reset(sha)      # чтобы команда не сработала повторно
+            last = "none"
+        else:
+            last = text or "none"
+    except Exception as e:
+        # молча игнорируем сетевые сбои
+        pass
+    time.sleep(POLL)

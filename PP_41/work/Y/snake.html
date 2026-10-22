@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Snake</title>
+  <style>
+    body { margin:0; background:#111; color:#eee; font:16px Consolas, monospace; }
+    .wrap { display:flex; flex-direction:column; align-items:center; gap:10px; padding:18px; }
+    canvas { background:#151515; border:1px solid #333; image-rendering: pixelated; }
+    .hint { color:#bbb; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div>Snake — счёт: <span id="score">0</span></div>
+  <canvas id="c" width="600" height="400"></canvas>
+  <div class="hint">Стрелки — движение • Пробел — пауза • Enter — рестарт</div>
+  <div id="msg"></div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const msgEl = document.getElementById('msg');
+
+  const cell = 20;
+  const cols = Math.floor(canvas.width / cell);
+  const rows = Math.floor(canvas.height / cell);
+
+  let snake, dir, nextDir, food, score, alive, paused, tickMs, timer;
+
+  const eq = (a,b) => a.x===b.x && a.y===b.y;
+  const inside = p => p.x>=0 && p.y>=0 && p.x<cols && p.y<rows;
+
+  function randFood() {
+    while (true) {
+      const p = { x: Math.floor(Math.random()*cols), y: Math.floor(Math.random()*rows) };
+      if (!snake.some(s => eq(s,p))) return p;
+    }
+  }
+
+  function reset() {
+    snake = [{x: Math.floor(cols/2), y: Math.floor(rows/2)}];
+    dir = {x:1, y:0};
+    nextDir = {x:1, y:0};
+    score = 0;
+    alive = true;
+    paused = false;
+    tickMs = 110;
+    food = randFood();
+    scoreEl.textContent = score;
+    msgEl.textContent = "";
+    clearInterval(timer);
+    timer = setInterval(step, tickMs);
+    draw();
+  }
+
+  function setSpeed() {
+    // небольшое ускорение по мере роста
+    const newMs = Math.max(55, 110 - score*2);
+    if (newMs !== tickMs) {
+      tickMs = newMs;
+      clearInterval(timer);
+      timer = setInterval(step, tickMs);
+    }
+  }
+
+  function gameOver() {
+    alive = false;
+    msgEl.textContent = "GAME OVER — нажми Enter для рестарта";
+  }
+
+  function step() {
+    if (!alive || paused) return;
+
+    dir = nextDir;
+
+    const head = snake[0];
+    const newHead = { x: head.x + dir.x, y: head.y + dir.y };
+
+    if (!inside(newHead)) { gameOver(); draw(); return; }
+
+    const willEat = eq(newHead, food);
+    const bodyToCheck = willEat ? snake : snake.slice(0, -1);
+    if (bodyToCheck.some(p => eq(p, newHead))) { gameOver(); draw(); return; }
+
+    snake.unshift(newHead);
+
+    if (willEat) {
+      score++;
+      scoreEl.textContent = score;
+      food = randFood();
+      setSpeed();
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function drawCell(p, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(p.x*cell, p.y*cell, cell, cell);
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // фон сеткой (легко)
+    ctx.fillStyle = "#151515";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // еда
+    drawCell(food, "#e35d5d");
+
+    // змейка
+    for (let i=0;i<snake.length;i++) {
+      drawCell(snake[i], i===0 ? "#57e389" : "#33c26e");
+    }
+
+    if (paused && alive) {
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = "#fff";
+      ctx.font = "24px Consolas, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("PAUSED (Space)", canvas.width/2, canvas.height/2);
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+
+    if (k === 'Enter') { reset(); return; }
+    if (k === ' ') { if (alive) paused = !paused; draw(); return; }
+
+    // запрет разворота на 180°
+    const want =
+      k === 'ArrowUp'    ? {x:0,y:-1} :
+      k === 'ArrowDown'  ? {x:0,y: 1} :
+      k === 'ArrowLeft'  ? {x:-1,y:0} :
+      k === 'ArrowRight' ? {x: 1,y:0} : null;
+
+    if (!want) return;
+
+    if (want.x === -dir.x && want.y === -dir.y) return;
+    nextDir = want;
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>

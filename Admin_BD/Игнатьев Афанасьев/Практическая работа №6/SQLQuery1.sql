@@ -502,7 +502,74 @@ CREATE TABLE loans.book_loans (
         CHECK (due_date > loan_date)
 );
 
+-- 6.0
+USE test_db;
+GO
+EXEC sp_help 'dbo.students';
+EXEC sp_help 'dbo.study_groups';
+EXEC sp_help 'dbo.teachers';
+GO
 -- 6.1
+
+ALTER TABLE dbo.students
+ADD phone_number VARCHAR(20) NULL;
+GO
+
+EXEC sp_help 'dbo.students';
+
+-- 6.2
+
+ALTER TABLE dbo.students
+ADD address     NVARCHAR(200) NULL,
+    is_active   BIT           NOT NULL
+        CONSTRAINT df_students_is_active   DEFAULT 1,
+    enrolled_on DATE          NOT NULL
+        CONSTRAINT df_students_enrolled_on DEFAULT CAST(GETDATE() AS DATE);
+GO
+
+EXEC sp_help 'dbo.students';
+
+-- 6.3
+-- проверяем наличие строк
+INSERT INTO dbo.study_groups (group_name, course)
+VALUES (N'ИС-21', 1), (N'ИС-22', 2);
+SELECT * FROM dbo.study_groups;
+-- ошибка
+ALTER TABLE dbo.study_groups
+ADD curator NVARCHAR(100) NOT NULL;
+GO
+
+-- 3.1 Добавляем как NULL
+ALTER TABLE dbo.study_groups ADD curator NVARCHAR(100) NULL;
+GO
+-- 3.2 Заполняем существующие строки
+UPDATE dbo.study_groups SET curator = N'Не назначен' WHERE curator IS NULL;
+GO
+-- 3.3 Делаем NOT NULL
+ALTER TABLE dbo.study_groups ALTER COLUMN curator NVARCHAR(100) NOT NULL;
+GO
+-- проверка
+EXEC sp_help 'dbo.study_groups';
+
+-- 6.4
+
+ALTER TABLE dbo.students
+ALTER COLUMN email NVARCHAR(150) NULL;
+GO
+
+-- 6.5
+
+
+
+-- 6.6
+
+
+
+-- 6.7
+
+
+
+-- 6.8
 
 
 
